@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML Site Packager</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface-alt: #f0efe9;
+    --border: rgba(0,0,0,0.10);
+    --border-strong: rgba(0,0,0,0.18);
+    --text-primary: #18181A;
+    --text-secondary: #5a5a62;
+    --text-muted: #9898a0;
+    --accent: #2563eb;
+    --accent-bg: #eff4ff;
+    --accent-border: #bfcffe;
+    --success: #16a34a;
+    --success-bg: #f0fdf4;
+    --success-border: #bbf7d0;
+    --warning-bg: #fffbeb;
+    --warning-border: #fde68a;
+    --warning-text: #92400e;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem 4rem;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  header .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 6px;
+  }
+  header .logo i { font-size: 28px; color: var(--accent); }
+  header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 640px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+  }
+
+  .phase { display: none; }
+  .phase.active { display: block; }
+
+  /* ── Upload phase ── */
+  .drop-area {
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    background: var(--surface-alt);
+    transition: border-color .15s, background .15s;
+    position: relative;
+    margin-bottom: 1rem;
+  }
+  .drop-area:hover, .drop-area.over {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .drop-area input {
+    position: absolute; inset: 0; opacity: 0;
+    cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-area .drop-icon {
+    font-size: 40px;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 12px;
+  }
+  .drop-area .drop-label {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .drop-area .drop-sub {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+  .hint-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+  .hint-row i { font-size: 14px; }
+
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 1.5rem;
+  }
+  .step {
+    text-align: center;
+    padding: .75rem .5rem;
+    background: var(--surface-alt);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .step i { font-size: 22px; color: var(--accent); display: block; margin-bottom: 6px; }
+  .step strong { font-size: 13px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .step span { font-size: 12px; color: var(--text-secondary); }
+
+  /* ── Review phase ── */
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 1.25rem 0 8px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .file-list { display: grid; gap: 6px; }
+  .file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+  }
+  .file-row .fi { font-size: 18px; flex-shrink: 0; }
+  .file-row .fn {
+    flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 500;
+  }
+  .file-row .fz { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+  .badge {
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 20px; flex-shrink: 0;
+  }
+  .b-html { background: #ede9fe; color: #5b21b6; }
+  .b-css  { background: var(--accent-bg); color: #1d4ed8; }
+  .b-js   { background: #fffbeb; color: #92400e; }
+  .b-img  { background: #f0fdf4; color: #15803d; }
+  .b-font { background: #fdf2f8; color: #9d174d; }
+  .b-other{ background: var(--surface-alt); color: var(--text-secondary); }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 10px;
+    margin: 1.25rem 0;
+  }
+  .sc {
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: .9rem;
+    text-align: center;
+  }
+  .sc .n { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+  .sc .l { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .missing-box {
+    background: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin: 1rem 0;
+  }
+  .missing-box .mb-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 13px; font-weight: 600;
+    color: var(--warning-text);
+    margin-bottom: 8px;
+  }
+  .missing-box .mb-title i { font-size: 16px; }
+  .missing-list { list-style: none; }
+  .missing-list li {
+    font-size: 12px; color: var(--warning-text);
+    padding: 3px 0;
+    border-bottom: 1px solid var(--warning-border);
+    font-family: monospace;
+  }
+  .missing-list li:last-child { border-bottom: none; }
+  .missing-note {
+    font-size: 11px; color: var(--warning-text);
+    margin-top: 8px; opacity: .75;
+  }
+
+  /* ── Buttons ── */
+  .btn-row {
+    display: flex; gap: 8px; margin-top: 1.25rem;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 7px; padding: .65rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 500;
+    cursor: pointer; border: none;
+    transition: opacity .15s, background .15s;
+    text-decoration: none;
+  }
+  .btn i { font-size: 16px; }
+  .btn-primary {
+    flex: 1;
+    background: var(--accent); color: #fff;
+  }
+  .btn-primary:hover { opacity: .88; }
+  .btn-primary:disabled { opacity: .45; cursor: default; }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    color: var(--text-secondary);
+  }
+  .btn-ghost:hover { background: var(--surface-alt); }
+  .btn-success {
+    flex: 1;
+    background: var(--success); color: #fff;
+  }
+  .btn-success:hover { opacity: .88; }
+
+  /* ── Building phase ── */
+  .build-center {
+    text-align: center; padding: 2rem 0;
+  }
+  .build-center .spin {
+    font-size: 38px; color: var(--accent);
+    display: block; margin-bottom: 12px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .build-msg { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+  .prog-bar {
+    height: 5px; background: var(--surface-alt);
+    border-radius: 3px; overflow: hidden;
+  }
+  .prog-fill {
+    height: 100%; background: var(--accent);
+    width: 0%; transition: width .25s;
+  }
+
+  /* ── Done phase ── */
+  .done-center {
+    text-align: center; padding: 1.5rem 0;
+  }
+  .done-center .check {
+    font-size: 48px; color: var(--success);
+    display: block; margin-bottom: 10px;
+  }
+  .done-center h2 { font-size: 20px; font-weight: 700; margin-bottom: 5px; }
+  .done-center p { font-size: 13px; color: var(--text-secondary); }
+
+  .done-info {
+    background: var(--success-bg);
+    border: 1px solid var(--success-border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13px;
+    color: var(--success);
+    margin: 1rem 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .done-info i { font-size: 18px; flex-shrink: 0; }
+
+  footer {
+    margin-top: 2rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><i class="ti ti-package-export" aria-hidden="true"></i> Site Packager</div>
+  <p>Upload your HTML + assets — download a ready-to-host ZIP</p>
+</header>
+
+<div class="card">
+
+  <!-- Phase 1: Upload -->
+  <div id="phaseUpload" class="phase active">
+    <div class="drop-area" id="dropArea">
+      <input type="file" id="fileInput" multiple
+        accept=".html,.htm,.css,.js,.png,.jpg,.jpeg,.gif,.svg,.webp,.ico,.avif,.woff,.woff2,.ttf,.eot,.json,.xml,.php,.mp4,.mp3,.pdf,.txt,.md">
+      <i class="ti ti-cloud-upload drop-icon" aria-hidden="true"></i>
+      <div class="drop-label">Drop all your site files here</div>
+      <div class="drop-sub">HTML · CSS · JS · images · fonts — everything at once</div>
+    </div>
+    <div class="hint-row">
+      <i class="ti ti-info-circle" aria-hidden="true"></i>
+      Use Ctrl/Cmd+A to select all files in a folder, or drag them in together
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <i class="ti ti-upload" aria-hidden="true"></i>
+        <strong>Upload files</strong>
+        <span>HTML + all assets</span>
+      </div>
+      <div class="step">
+        <i class="ti ti-list-check" aria-hidden="true"></i>
+        <strong>Review</strong>
+        <span>Check what's detected</span>
+      </div>
+      <div class="step">
+        <i class="ti ti-download" aria-hidden="true"></i>
+        <strong>Download ZIP</strong>
+        <span>Upload to your host</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 2: Review -->
+  <div id="phaseReview" class="phase">
+    <div class="section-label">Files to pack</div>
+    <div id="fileList" class="file-list"></div>
+
+    <div id="missingBox" class="missing-box" style="display:none">
+      <div class="mb-title">
+        <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+        Assets referenced in HTML but not uploaded
+      </div>
+      <ul id="missingList" class="missing-list"></ul>
+      <div class="missing-note">These will be included as empty placeholders. Replace them before going live.</div>
+    </div>
+
+    <div id="summaryGrid" class="summary-grid"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="reset()">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i> Back
+      </button>
+      <button class="btn btn-primary" id="buildBtn" onclick="buildZip()">
+        <i class="ti ti-package" aria-hidden="true"></i> Build &amp; Download ZIP
+      </button>
+    </div>
+  </div>
+
+  <!-- Phase 3: Building -->
+  <div id="phaseBuilding" class="phase">
+    <div class="build-center">
+      <i class="ti ti-loader-2 spin" aria-hidden="true"></i>
+      <div class="build-msg" id="buildMsg">Packing files…</div>
+      <div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+    </div>
+  </div>
+
+  <!-- Phase 4: Done -->
+  <div id="phaseDone" class="phase">
+    <div class="done-center">
+      <i class="ti ti-circle-check check" aria-hidden="true"></i>
+      <h2>ZIP downloaded!</h2>
+      <p>Your site package is ready to upload to your hosting provider.</p>
+    </div>
+    <div class="done-info">
+      <i class="ti ti-file-zip" aria-hidden="true"></i>
+      <span id="doneMsg">website-site.zip</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="reset()">
+        <i class="ti ti-refresh" aria-hidden="true"></i> Package another site
+      </button>
+      <button class="btn btn-success" id="redownloadBtn">
+        <i class="ti ti-download" aria-hidden="true"></i> Download again
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<footer>All processing happens in your browser — files are never uploaded to any server.</footer>
+
+<script>
+let uploadedFiles = [];
+let lastBlob = null;
+let lastZipName = 'website-site.zip';
+
+const dropArea = document.getElementById('dropArea');
+const fileInput = document.getElementById('fileInput');
+
+dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('over'); });
+dropArea.addEventListener('dragleave', () => dropArea.classList.remove('over'));
+dropArea.addEventListener('drop', e => { e.preventDefault(); dropArea.classList.remove('over'); handleFiles([...e.dataTransfer.files]); });
+fileInput.addEventListener('change', () => handleFiles([...fileInput.files]));
+
+function showPhase(id) {
+  document.querySelectorAll('.phase').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function getExt(name) {
+  const m = name.match(/\.([a-zA-Z0-9]+)$/);
+  return m ? m[1].toLowerCase() : '';
+}
+
+function classifyFile(name) {
+  const ext = getExt(name);
+  if (['html','htm'].includes(ext)) return ['b-html', 'HTML', 'ti-file-code'];
+  if (ext === 'css')  return ['b-css',  'CSS',   'ti-file-type-css'];
+  if (ext === 'js')   return ['b-js',   'JS',    'ti-file-type-js'];
+  if (['png','jpg','jpeg','gif','svg','webp','ico','avif'].includes(ext)) return ['b-img', 'Image', 'ti-photo'];
+  if (['woff','woff2','ttf','eot'].includes(ext)) return ['b-font', 'Font', 'ti-typography'];
+  return ['b-other', ext ? ext.toUpperCase() : 'File', 'ti-file'];
+}
+
+function extractAssets(htmlText) {
+  const refs = new Set();
+  const patterns = [
+    /(?:href|src|action|data-src)=["']([^"'#?]+)/gi,
+    /url\(["']?([^"')#?]+)["']?\)/gi,
+    /import\s+.*?from\s+["']([^"']+)["']/gi,
+    /import\s+["']([^"']+)["']/gi,
+  ];
+  for (const re of patterns) {
+    let m;
+    while ((m = re.exec(htmlText)) !== null) {
+      const s = m[1].trim();
+      if (!s || s.startsWith('http') || s.startsWith('//') || s.startsWith('data:') || s.startsWith('javascript:') || s.startsWith('mailto:') || s.startsWith('#')) continue;
+      refs.add(s.split('?')[0].split('#')[0]);
+    }
+  }
+  return [...refs];
+}
+
+function handleFiles(files) {
+  if (!files.length) return;
+  uploadedFiles = files;
+
+  const htmlFiles = [...files].filter(f => /\.html?$/i.test(f.name));
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+
+  let totalSize = 0;
+  [...files].forEach(f => {
+    totalSize += f.size;
+    const [badgeCls, label, icon] = classifyFile(f.name);
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.innerHTML = `<i class="ti ${icon} fi" aria-hidden="true"></i>
+      <span class="fn" title="${f.name}">${f.name}</span>
+      <span class="fz">${fmtSize(f.size)}</span>
+      <span class="badge ${badgeCls}">${label}</span>`;
+    list.appendChild(row);
+  });
+
+  document.getElementById('summaryGrid').innerHTML = `
+    <div class="sc"><div class="n">${files.length}</div><div class="l">Files total</div></div>
+    <div class="sc"><div class="n">${fmtSize(totalSize)}</div><div class="l">Total size</div></div>
+    <div class="sc"><div class="n">${htmlFiles.length}</div><div class="l">HTML pages</div></div>
+  `;
+
+  const uploadedNames = new Set([...files].map(f => f.name));
+  const missingList = document.getElementById('missingList');
+  missingList.innerHTML = '';
+
+  const readers = htmlFiles.map(f => new Promise(res => {
+    const r = new FileReader();
+    r.onload = e => res(extractAssets(e.target.result));
+    r.readAsText(f);
+  }));
+
+  Promise.all(readers).then(allRefs => {
+    const allAssets = new Set(allRefs.flat());
+    let missingCount = 0;
+    allAssets.forEach(ref => {
+      const basename = ref.split('/').pop();
+      if (!uploadedNames.has(basename) && !uploadedNames.has(ref)) {
+        missingCount++;
+        const li = document.createElement('li');
+        li.textContent = ref;
+        missingList.appendChild(li);
+      }
+    });
+    document.getElementById('missingBox').style.display = missingCount > 0 ? 'block' : 'none';
+  });
+
+  showPhase('phaseReview');
+}
+
+async function buildZip() {
+  showPhase('phaseBuilding');
+  const progFill = document.getElementById('progFill');
+  const buildMsg = document.getElementById('buildMsg');
+
+  const zip = new JSZip();
+  const htmlFile = [...uploadedFiles].find(f => /\.html?$/i.test(f.name));
+  const siteName = htmlFile ? htmlFile.name.replace(/\.html?$/i, '') : 'website';
+
+  const total = uploadedFiles.length;
+  let done = 0;
+
+  const promises = [...uploadedFiles].map(file => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => {
+      zip.file(file.name, e.target.result);
+      done++;
+      progFill.style.width = Math.round((done / total) * 85) + '%';
+      buildMsg.textContent = `Adding ${file.name}…`;
+      res();
+    };
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  }));
+
+  await Promise.all(promises);
+
+  buildMsg.textContent = 'Writing README…';
+  progFill.style.width = '90%';
+
+  const mainHtml = htmlFile ? htmlFile.name : 'index.html';
+  const readme = [
+    `# ${siteName} — website package`,
+    '',
+    'Generated by HTML Site Packager.',
+    '',
+    '## How to deploy',
+    '1. Extract this ZIP',
+    '2. Upload all files to your hosting provider (cPanel, Netlify, Vercel, etc.)',
+    '3. Keep the folder structure exactly as-is',
+    mainHtml !== 'index.html' ? `4. Rename \`${mainHtml}\` to \`index.html\` if your host requires it` : '',
+    '',
+    '## Files included',
+    ...[...uploadedFiles].map(f => `- ${f.name} (${fmtSize(f.size)})`),
+    '',
+    '## Notes',
+    'External CDN links (Bootstrap, jQuery, Google Fonts, etc.) load from the',
+    'internet automatically — no extra files needed for those.',
+    '',
+    'All processing was done locally in your browser. No files were uploaded to any server.',
+  ].filter(l => l !== undefined).join('\n');
+
+  zip.file('README.md', readme);
+
+  buildMsg.textContent = 'Compressing…';
+  progFill.style.width = '95%';
+
+  lastZipName = `${siteName}-site.zip`;
+  lastBlob = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 }
+  });
+
+  progFill.style.width = '100%';
+  await new Promise(r => setTimeout(r, 300));
+
+  triggerDownload();
+  document.getElementById('doneMsg').textContent =
+    `${[...uploadedFiles].length} files → ${lastZipName} (${fmtSize(lastBlob.size)})`;
+  document.getElementById('redownloadBtn').onclick = triggerDownload;
+  showPhase('phaseDone');
+}
+
+function triggerDownload() {
+  if (!lastBlob) return;
+  const url = URL.createObjectURL(lastBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = lastZipName;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+function reset() {
+  uploadedFiles = []; lastBlob = null;
+  fileInput.value = '';
+  document.getElementById('fileList').innerHTML = '';
+  document.getElementById('missingList').innerHTML = '';
+  document.getElementById('missingBox').style.display = 'none';
+  document.getElementById('progFill').style.width = '0%';
+  showPhase('phaseUpload');
+}
+</script>
+</body>
+</html>
